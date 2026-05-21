@@ -1,0 +1,16 @@
+manifest:
+  projects:
+    - name: zephyr
+      url: https://github.com/zephyrproject-rtos/zephyr
+      revision: v3.7.0
+      import: true
+
+    - name: minimp3
+      url: https://github.com/lieff/minimp3
+      revision: master
+      path: modules/minimp3
+
+    - name: tjpgdec
+      url: https://github.com/elm-chan/TJpgDec
+      revision: master
+      path: modules/tjpgdec

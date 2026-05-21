@@ -1,0 +1,83 @@
+/* boards/mimxrt1060_evk.overlay */
+
+&semc {
+    status = "okay";
+    sdram: sdram@80000000 {
+        device_type = "memory";
+        reg = <0x80000000 DT_SIZE_M(32)>;
+    };
+};
+
+&sai1 {
+    status = "okay";
+    mclk-is-output;
+};
+
+&lpi2c1 {
+    status = "okay";
+    clock-frequency = <I2C_BITRATE_FAST>;
+
+    wm8960: wm8960@1a {
+        compatible = "wolfson,wm8960";
+        reg = <0x1a>;
+    };
+
+    ft5336@38 {
+        compatible = "focaltech,ft5336";
+        reg = <0x38>;
+        int-gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
+    };
+};
+
+&usdhc1 {
+    status = "okay";
+    cd-gpios = <&gpio2 28 GPIO_ACTIVE_LOW>;
+    no-1-8-v;
+};
+
+&elcdif {
+    status = "okay";
+    display = <&rk043fn02h>;
+
+    rk043fn02h: rk043fn02h {
+        compatible     = "rocktech,rk043fn02h";
+        width          = <480>;
+        height         = <272>;
+        hsync-len      = <41>;
+        hfront-porch   = <4>;
+        hback-porch    = <8>;
+        vsync-len      = <10>;
+        vfront-porch   = <4>;
+        vback-porch    = <2>;
+        hsync-active   = <0>;
+        vsync-active   = <0>;
+        de-active      = <1>;
+        pixelclk-active = <0>;
+    };
+};
+
+&flexspi {
+    status = "okay";
+    w25q512jvfiq: w25q512jvfiq@0 {
+        compatible  = "winbond,w25q512jvfiq", "jedec,spi-nor";
+        size        = <DT_SIZE_M(512)>;
+        reg         = <0>;
+        spi-max-frequency = <133000000>;
+        status      = "okay";
+
+        partitions {
+            compatible    = "fixed-partitions";
+            #address-cells = <1>;
+            #size-cells    = <1>;
+
+            boot_partition: partition@0 {
+                label = "mcuboot";
+                reg   = <0x00000000 DT_SIZE_M(4)>;
+            };
+            nvs_storage: partition@3FC0000 {
+                label = "nvs_storage";
+                reg   = <0x03FC0000 0x00040000>;
+            };
+        };
+    };
+};

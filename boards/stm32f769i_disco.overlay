@@ -1,0 +1,58 @@
+/* boards/stm32f769i_disco.overlay */
+
+&sai2 {
+    status = "okay";
+    pinctrl-0 = <&sai2_mck_pi4 &sai2_sck_pi5
+                 &sai2_sd_pi6  &sai2_fs_pi7>;
+    pinctrl-names = "default";
+};
+
+&i2c3 {
+    status = "okay";
+    clock-frequency = <I2C_BITRATE_FAST>;
+
+    wm8994: wm8994@1b {
+        compatible = "wolfson,wm8994";
+        reg = <0x1b>;
+    };
+};
+
+&sdmmc2 {
+    status = "okay";
+    cd-gpios = <&gpioi 15 GPIO_ACTIVE_LOW>;
+};
+
+&ltdc {
+    status = "okay";
+    disp-on-gpios = <&gpioj 5 GPIO_ACTIVE_HIGH>;
+
+    otm8009a: otm8009a@0 {
+        compatible = "orisetech,otm8009a";
+        status = "okay";
+        width  = <800>;
+        height = <480>;
+        reset-gpios = <&gpioj 15 GPIO_ACTIVE_LOW>;
+    };
+};
+
+&i2c1 {
+    status = "okay";
+    ft5336@38 {
+        compatible = "focaltech,ft5336";
+        reg = <0x38>;
+        int-gpios = <&gpioi 13 GPIO_ACTIVE_LOW>;
+    };
+};
+
+&flash0 {
+    partitions {
+        compatible = "fixed-partitions";
+        #address-cells = <1>;
+        #size-cells    = <1>;
+
+        nvs_storage: partition@1F0000 {
+            label = "nvs_storage";
+            reg   = <0x001F0000 0x00010000>;
+        };
+    };
+};

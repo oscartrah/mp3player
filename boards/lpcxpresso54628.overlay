@@ -1,0 +1,101 @@
+/* boards/lpcxpresso54628.overlay */
+
+&flexcomm6 {
+    compatible = "nxp,lpc-i2s";
+    status = "okay";
+    dmas = <&dma0 12>, <&dma0 13>;
+    dma-names = "rx", "tx";
+};
+
+&flexcomm2 {
+    compatible = "nxp,lpc-i2c";
+    status = "okay";
+    clock-frequency = <I2C_BITRATE_FAST>;
+
+    wm8904: wm8904@1a {
+        compatible = "wolfson,wm8904";
+        reg = <0x1a>;
+    };
+
+    ft5336@38 {
+        compatible = "focaltech,ft5336";
+        reg = <0x38>;
+        int-gpios = <&gpio4 0 GPIO_ACTIVE_LOW>;
+    };
+};
+
+&sdif {
+    status = "okay";
+    cd-gpios = <&gpio2 10 GPIO_ACTIVE_LOW>;
+    mmc {
+        compatible   = "zephyr,sdmmc-disk";
+        disk-name    = "SD";
+        bus-width    = <4>;
+        status       = "okay";
+    };
+};
+
+&lcdif {
+    status = "okay";
+    display = <&rk043fn02h>;
+
+    rk043fn02h: rk043fn02h {
+        compatible      = "rocktech,rk043fn02h";
+        width           = <480>;
+        height          = <272>;
+        hsync-len       = <41>;
+        hfront-porch    = <4>;
+        hback-porch     = <8>;
+        vsync-len       = <10>;
+        vfront-porch    = <4>;
+        vback-porch     = <2>;
+        hsync-active    = <0>;
+        vsync-active    = <0>;
+        de-active       = <1>;
+        pixelclk-active = <0>;
+        disp-on-gpios   = <&gpio2 26 GPIO_ACTIVE_HIGH>;
+    };
+};
+
+&flash0 {
+    partitions {
+        compatible    = "fixed-partitions";
+        #address-cells = <1>;
+        #size-cells    = <1>;
+
+        slot0_partition: partition@0 {
+            label = "image-0";
+            reg   = <0x00000000 0x00078000>;
+        };
+        nvs_storage: partition@78000 {
+            label = "nvs_storage";
+            reg   = <0x00078000 0x00008000>;
+        };
+    };
+};
+
+/ {
+    buttons {
+        compatible = "gpio-keys";
+        btn_play_pause: btn_0 {
+            gpios = <&gpio0 6 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            label = "Play/Pause";
+        };
+        btn_next: btn_1 {
+            gpios = <&gpio0 7 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            label = "Next";
+        };
+        btn_prev: btn_2 {
+            gpios = <&gpio0 8 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            label = "Prev";
+        };
+        btn_vol_up: btn_3 {
+            gpios = <&gpio1 31 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            label = "Vol+";
+        };
+        btn_vol_down: btn_4 {
+            gpios = <&gpio0 24 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            label = "Vol-";
+        };
+    };
+};

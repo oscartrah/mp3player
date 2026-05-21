@@ -1,0 +1,29 @@
+# Zephyr Build-Artefakte
+build/
+.west/
+*.o
+*.d
+*.elf
+*.bin
+*.hex
+*.map
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*~
+
+# macOS
+.DS_Store
+
+# Module-Quellen (werden via west geholt)
+modules/minimp3/*.h
+modules/minimp3/*.c
+modules/tjpgdec/*.h
+modules/tjpgdec/*.c

@@ -1,0 +1,104 @@
+/* boards/ek_ra6m3g.overlay */
+
+&sdramc {
+    status = "okay";
+    is42s16320f: sdram@90000000 {
+        device_type         = "memory";
+        reg                 = <0x90000000 DT_SIZE_M(32)>;
+        renesas,endian      = <0>;
+        renesas,bus-width   = <16>;
+        renesas,col-addr    = <10>;
+        renesas,row-addr    = <13>;
+        renesas,bank-num    = <4>;
+        renesas,cas-latency = <2>;
+        renesas,trcd-delay-ns     = <18>;
+        renesas,tras-delay-ns     = <42>;
+        renesas,trp-delay-ns      = <18>;
+        renesas,twr-delay-ns      = <14>;
+        renesas,refresh-interval-ns = <7813>;
+    };
+};
+
+&ssi0 {
+    compatible = "renesas,ra-ssi";
+    status = "okay";
+    renesas,operating-mode = <0>;
+    renesas,bit-depth = <16>;
+    renesas,channel-num = <2>;
+};
+
+&sci_i2c2 {
+    compatible = "renesas,ra-sci-i2c";
+    status = "okay";
+    clock-frequency = <I2C_BITRATE_FAST>;
+
+    da7212: da7212@1a {
+        compatible = "dialog,da7212";
+        reg = <0x1a>;
+    };
+
+    gt911: gt911@5d {
+        compatible  = "goodix,gt911";
+        reg         = <0x5d>;
+        irq-gpios   = <&ioport2 6 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&ioport2 5 GPIO_ACTIVE_LOW>;
+    };
+};
+
+&sdhi0 {
+    compatible = "renesas,ra-sdhi";
+    status = "okay";
+    cd-gpios = <&ioport4 5 GPIO_ACTIVE_LOW>;
+    bus-width = <4>;
+    mmc {
+        compatible = "zephyr,sdmmc-disk";
+        disk-name  = "SD";
+        status     = "okay";
+    };
+};
+
+&glcdc0 {
+    compatible = "renesas,ra-glcdc";
+    status = "okay";
+    display = <&lcd_panel>;
+
+    lcd_panel: lcd_panel {
+        width           = <480>;
+        height          = <272>;
+        hsync-len       = <41>;
+        hfront-porch    = <4>;
+        hback-porch     = <8>;
+        vsync-len       = <10>;
+        vfront-porch    = <4>;
+        vback-porch     = <2>;
+        hsync-active    = <0>;
+        vsync-active    = <0>;
+        de-active       = <1>;
+        pixelclk-active = <0>;
+        backlight-gpios = <&ioport4 3 GPIO_ACTIVE_HIGH>;
+    };
+};
+
+&qspi0 {
+    compatible = "renesas,ra-qspi";
+    status = "okay";
+
+    mx25l512: mx25l512@0 {
+        compatible        = "jedec,spi-nor";
+        reg               = <0>;
+        spi-max-frequency = <80000000>;
+        size              = <DT_SIZE_M(512)>;
+        status            = "okay";
+
+        partitions {
+            compatible    = "fixed-partitions";
+            #address-cells = <1>;
+            #size-cells    = <1>;
+
+            nvs_storage: partition@3F00000 {
+                label = "nvs_storage";
+                reg   = <0x03F00000 0x00100000>;
+            };
+        };
+    };
+};

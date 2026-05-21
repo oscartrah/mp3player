@@ -1,0 +1,81 @@
+/* boards/stm32f746g_disco.overlay */
+
+&sai2 {
+    status = "okay";
+    pinctrl-0 = <&sai2_mck_pi4 &sai2_sck_pi5
+                 &sai2_sd_pi6  &sai2_fs_pi7>;
+    pinctrl-names = "default";
+};
+
+&i2c3 {
+    status = "okay";
+    clock-frequency = <I2C_BITRATE_FAST>;
+
+    wm8994: wm8994@1b {
+        compatible = "wolfson,wm8994";
+        reg = <0x1b>;
+    };
+
+    ft5336@38 {
+        compatible = "focaltech,ft5336";
+        reg = <0x38>;
+        int-gpios = <&gpioi 13 GPIO_ACTIVE_LOW>;
+    };
+};
+
+&sdmmc1 {
+    status = "okay";
+    pinctrl-0 = <&sdmmc1_d0_pc8 &sdmmc1_d1_pc9
+                 &sdmmc1_d2_pc10 &sdmmc1_d3_pc11
+                 &sdmmc1_ck_pc12 &sdmmc1_cmd_pd2>;
+    pinctrl-names = "default";
+    cd-gpios = <&gpioc 13 GPIO_ACTIVE_LOW>;
+    bus-width = <4>;
+
+    mmc {
+        compatible = "zephyr,sdmmc-disk";
+        disk-name  = "SD";
+        status     = "okay";
+    };
+};
+
+&ltdc {
+    status = "okay";
+    disp-on-gpios  = <&gpioi 12 GPIO_ACTIVE_HIGH>;
+    bl-ctrl-gpios  = <&gpiok 3  GPIO_ACTIVE_HIGH>;
+
+    display = <&rk043fn02h>;
+
+    rk043fn02h: rk043fn02h {
+        compatible      = "rocktech,rk043fn02h";
+        width           = <480>;
+        height          = <272>;
+        hsync-len       = <41>;
+        hfront-porch    = <4>;
+        hback-porch     = <8>;
+        vsync-len       = <10>;
+        vfront-porch    = <4>;
+        vback-porch     = <2>;
+        hsync-active    = <0>;
+        vsync-active    = <0>;
+        de-active       = <1>;
+        pixelclk-active = <0>;
+    };
+};
+
+&flash0 {
+    partitions {
+        compatible    = "fixed-partitions";
+        #address-cells = <1>;
+        #size-cells    = <1>;
+
+        slot0_partition: partition@0 {
+            label = "image-0";
+            reg   = <0x00000000 0x000F0000>;
+        };
+        nvs_storage: partition@F0000 {
+            label = "nvs_storage";
+            reg   = <0x000F0000 0x00010000>;
+        };
+    };
+};

@@ -1,0 +1,4 @@
+config MINIMP3
+    bool "minimp3 MP3 decoder"
+    help
+      Enables the minimp3 single-header MP3 decoder library.
