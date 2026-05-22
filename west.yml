@@ -11,6 +11,6 @@ manifest:
       path: modules/minimp3
 
     - name: tjpgdec
-      url: https://github.com/elm-chan/TJpgDec
+      url: https://github.com/cmumford/TJpgDec
       revision: master
       path: modules/tjpgdec

@@ -67,9 +67,9 @@ dist/
 
 # ── Module sources fetched by west (do not commit) ───────────────────────────
 modules/minimp3/minimp3.h
-modules/tjpgdec/src/
 modules/tjpgdec/tjpgd.c
 modules/tjpgdec/tjpgd.h
+modules/tjpgdec/tjpgdcnf.h
 
 # ── IDE & editor ──────────────────────────────────────────────────────────────
 .vscode/settings.json

@@ -3,50 +3,91 @@
 #include <zephyr/kernel.h>
 #include <string.h>
 
-/* Tiny JPEG decode via Zephyr's JPEG API (CONFIG_JPEG) or fallback stub */
-#ifdef CONFIG_JPEG
-#include <zephyr/drivers/video.h>
-#endif
+#ifdef HAS_TJPGDEC
+#include "tjpgd.h"
 
-static lv_img_dsc_t  s_img_dsc;
-static uint8_t       s_rgb_buf[ART_DISPLAY_SIZE * ART_DISPLAY_SIZE * 3];
-static bool          s_decoded = false;
+#define TJPGD_WORK_SIZE 4096
+static uint8_t s_work[TJPGD_WORK_SIZE];
+
+/* Input callback: feed raw JPEG bytes to TJpgDec */
+typedef struct { const uint8_t *data; uint32_t size; uint32_t pos; } jpeg_src_t;
+
+static unsigned jpeg_in(JDEC *jd, uint8_t *buf, unsigned len) {
+    jpeg_src_t *src = (jpeg_src_t *)jd->device;
+    unsigned avail = src->size - src->pos;
+    if (len > avail) len = avail;
+    if (buf) memcpy(buf, src->data + src->pos, len);
+    src->pos += len;
+    return len;
+}
+
+/* Output callback: write one decoded MCU block into the pixel buffer */
+static lv_color_t s_pixel_buf[ART_DISPLAY_SIZE * ART_DISPLAY_SIZE];
+
+static int jpeg_out(JDEC *jd, void *bitmap, JRECT *rect) {
+    ARG_UNUSED(jd);
+    const uint8_t *src = (const uint8_t *)bitmap;  /* RGB888 */
+    uint16_t bw = rect->right  - rect->left + 1;
+    uint16_t bh = rect->bottom - rect->top  + 1;
+
+    for (uint16_t y = 0; y < bh; y++) {
+        for (uint16_t x = 0; x < bw; x++) {
+            uint32_t px = (uint32_t)(rect->top + y) * ART_DISPLAY_SIZE
+                        + (rect->left + x);
+            if (px >= (uint32_t)(ART_DISPLAY_SIZE * ART_DISPLAY_SIZE)) continue;
+            const uint8_t *p = src + (y * bw + x) * 3;
+            s_pixel_buf[px] = lv_color_make(p[0], p[1], p[2]);
+        }
+    }
+    return 1; /* 1 = continue */
+}
+
+#else
+/* Fallback when TJpgDec was not fetched */
+static lv_color_t s_pixel_buf[ART_DISPLAY_SIZE * ART_DISPLAY_SIZE];
+#endif /* HAS_TJPGDEC */
+
+static lv_img_dsc_t s_img_dsc;
+static bool         s_decoded = false;
 
 bool album_art_decode(const uint8_t *jpeg_data, uint32_t size) {
     s_decoded = false;
     if (!jpeg_data || size == 0) return false;
 
-#ifdef CONFIG_JPEG
-    /* Use Zephyr JPEG driver if available */
-    const struct device *dev = device_get_binding("JPEG");
-    if (dev) {
-        struct video_format fmt = {
-            .pixelformat = VIDEO_PIX_FMT_RGB24,
-            .width       = ART_DISPLAY_SIZE,
-            .height      = ART_DISPLAY_SIZE,
-        };
-        if (video_set_format(dev, VIDEO_EP_OUT, &fmt) == 0) {
-            struct video_buffer vbuf = {
-                .buffer = s_rgb_buf,
-                .size   = sizeof(s_rgb_buf),
-            };
-            /* Simplified: real impl would feed jpeg_data to driver */
-            ARG_UNUSED(jpeg_data);
-            ARG_UNUSED(size);
-        }
+#ifdef HAS_TJPGDEC
+    JDEC jd;
+    jpeg_src_t src = { .data = jpeg_data, .size = size, .pos = 0 };
+
+    /* Initialise decompressor */
+    JRESULT rc = jd_prepare(&jd, jpeg_in, s_work, TJPGD_WORK_SIZE, &src);
+    if (rc != JDR_OK) return false;
+
+    /* Scale down to fit ART_DISPLAY_SIZE: pick largest 1/N that still fits */
+    uint8_t scale = 0;
+    while (scale < 3 &&
+           (jd.width  >> (scale + 1)) >= ART_DISPLAY_SIZE &&
+           (jd.height >> (scale + 1)) >= ART_DISPLAY_SIZE) {
+        scale++;
     }
+
+    memset(s_pixel_buf, 0, sizeof(s_pixel_buf));
+    rc = jd_decomp(&jd, jpeg_out, scale);
+    if (rc != JDR_OK) return false;
 #else
-    /* Fallback: JPEG not supported — use solid colour placeholder */
-    memset(s_rgb_buf, 0x33, sizeof(s_rgb_buf));
+    /* No JPEG decoder — solid grey placeholder */
     ARG_UNUSED(jpeg_data);
     ARG_UNUSED(size);
+    lv_color_t grey = lv_color_make(0x44, 0x44, 0x44);
+    for (int i = 0; i < ART_DISPLAY_SIZE * ART_DISPLAY_SIZE; i++) {
+        s_pixel_buf[i] = grey;
+    }
 #endif
 
     s_img_dsc.header.cf     = LV_IMG_CF_TRUE_COLOR;
     s_img_dsc.header.w      = ART_DISPLAY_SIZE;
     s_img_dsc.header.h      = ART_DISPLAY_SIZE;
-    s_img_dsc.data_size     = ART_DISPLAY_SIZE * ART_DISPLAY_SIZE * LV_COLOR_SIZE / 8;
-    s_img_dsc.data          = s_rgb_buf;
+    s_img_dsc.data_size     = sizeof(s_pixel_buf);
+    s_img_dsc.data          = (const uint8_t *)s_pixel_buf;
     s_decoded = true;
     return true;
 }
@@ -61,11 +102,22 @@ lv_obj_t *album_art_create_widget(lv_obj_t *parent, lv_coord_t x,
 
 void album_art_update(lv_obj_t *img_widget, const mp3_meta_t *meta) {
     if (!img_widget) return;
+
+    bool ok = false;
     if (meta && meta->has_art) {
-        album_art_decode(meta->art_data, meta->art_size);
-    } else {
-        memset(s_rgb_buf, 0x22, sizeof(s_rgb_buf));
-        s_img_dsc.data = s_rgb_buf;
+        ok = album_art_decode(meta->art_data, meta->art_size);
+    }
+    if (!ok) {
+        /* Grey placeholder */
+        lv_color_t grey = lv_color_make(0x33, 0x33, 0x33);
+        for (int i = 0; i < ART_DISPLAY_SIZE * ART_DISPLAY_SIZE; i++) {
+            s_pixel_buf[i] = grey;
+        }
+        s_img_dsc.header.cf  = LV_IMG_CF_TRUE_COLOR;
+        s_img_dsc.header.w   = ART_DISPLAY_SIZE;
+        s_img_dsc.header.h   = ART_DISPLAY_SIZE;
+        s_img_dsc.data_size  = sizeof(s_pixel_buf);
+        s_img_dsc.data       = (const uint8_t *)s_pixel_buf;
         s_decoded = true;
     }
     if (s_decoded) {

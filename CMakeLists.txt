@@ -31,3 +31,11 @@ target_sources(app PRIVATE
 )
 
 target_include_directories(app PRIVATE src)
+
+# TJpgDec — fetched by west into modules/tjpgdec (cmumford/TJpgDec mirror)
+set(TJPGDEC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../modules/tjpgdec)
+if(EXISTS ${TJPGDEC_DIR}/tjpgd.c)
+    target_sources(app PRIVATE ${TJPGDEC_DIR}/tjpgd.c)
+    target_include_directories(app PRIVATE ${TJPGDEC_DIR})
+    target_compile_definitions(app PRIVATE HAS_TJPGDEC=1)
+endif()
