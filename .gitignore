@@ -1,29 +1,93 @@
-# Zephyr Build-Artefakte
+# ── Zephyr build output ───────────────────────────────────────────────────────
 build/
-.west/
-*.o
-*.d
+twister-out/
+twister-out*/
+*.cache
+
+# Generated during build
+zephyr/
 *.elf
 *.bin
 *.hex
+*.s19
+*.srec
+*.uf2
 *.map
+*.lst
+*.lnk
 
-# CMake
+# Object / dependency files
+*.o
+*.d
+*.a
+*.lib
+
+# ── West workspace metadata ───────────────────────────────────────────────────
+.west/
+
+# ── CMake ─────────────────────────────────────────────────────────────────────
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
+CTestTestfile.cmake
+_deps/
+compile_commands.json
 
-# IDE
+# ── Ninja / Make ──────────────────────────────────────────────────────────────
+.ninja_deps
+.ninja_log
+Makefile
+
+# ── Zephyr DTS / Kconfig generated files ─────────────────────────────────────
+*.dts.pre
+*.dts.pre.tmp
+*.dtsi.pre
+zephyr.dts
+zephyr.dts.pre
+devicetree_generated.h
+include/generated/
+kconfig/
+.config
+.config.old
+autoconf.h
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+*.egg
+
+# ── Compiler cache ────────────────────────────────────────────────────────────
+.cache/
+*.ccache
+
+# ── Module sources fetched by west (do not commit) ───────────────────────────
+modules/minimp3/minimp3.h
+modules/tjpgdec/src/
+modules/tjpgdec/tjpgd.c
+modules/tjpgdec/tjpgd.h
+
+# ── IDE & editor ──────────────────────────────────────────────────────────────
 .vscode/settings.json
+.vscode/launch.json
+.vscode/c_cpp_properties.json
 .idea/
 *.swp
+*.swo
 *~
+*.orig
+*.bak
+\#*\#
 
-# macOS
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
+Thumbs.db
+desktop.ini
 
-# Module-Quellen (werden via west geholt)
-modules/minimp3/*.h
-modules/minimp3/*.c
-modules/tjpgdec/*.h
-modules/tjpgdec/*.c
+# ── Logs & misc ───────────────────────────────────────────────────────────────
+*.log
+*.tmp
