@@ -14,7 +14,7 @@
 /* ── Stack-Definitionen ───────────────────────── */
 #define DECODER_STACK  16384
 #define PLAYER_STACK    4096
-#define UI_STACK        8192
+#define UI_STACK       20480
 #define SAVE_STACK      2048
 
 K_THREAD_STACK_DEFINE(decoder_stack, DECODER_STACK);
