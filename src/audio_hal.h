@@ -61,12 +61,15 @@ extern const audio_hal_api_t *g_audio_hal;
 int audio_hal_init(void);
 
 static inline int audio_set_volume(uint8_t v) {
+    if (!g_audio_hal || !g_audio_hal->set_volume) return -ENODEV;
     return g_audio_hal->set_volume(v);
 }
 static inline int audio_set_eq(const eq_config_t *eq) {
+    if (!g_audio_hal || !g_audio_hal->set_eq) return -ENODEV;
     return g_audio_hal->set_eq(eq);
 }
 static inline int audio_set_mute(bool m) {
+    if (!g_audio_hal || !g_audio_hal->set_mute) return -ENODEV;
     return g_audio_hal->set_mute(m);
 }
 

@@ -1,6 +1,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/display.h>
 #include <lvgl.h>
+#include <string.h>
 
 #include "player_state.h"
 #include "settings.h"
@@ -34,9 +35,10 @@ void save_thread(void *p1, void *p2, void *p3) {
         k_sleep(K_SECONDS(5));
         k_mutex_lock(&state_mutex, K_FOREVER);
         uint32_t pos   = g_state.elapsed_sec;
-        uint16_t track = (uint16_t)g_playlist.current;
+        int16_t  cur   = g_playlist.current;
         k_mutex_unlock(&state_mutex);
-        if (pos != last_saved) {
+        if (pos != last_saved && cur >= 0) {
+            uint16_t track = (uint16_t)cur;
             settings_save_position(track, pos);
             last_saved = pos;
         }
@@ -48,6 +50,9 @@ void ui_thread(void *p1, void *p2, void *p3) {
     ARG_UNUSED(p1); ARG_UNUSED(p2); ARG_UNUSED(p3);
     const struct device *display =
         DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+    if (!device_is_ready(display)) {
+        return;
+    }
     display_blanking_off(display);
     lv_init();
     ui_init();
@@ -75,8 +80,15 @@ int main(void) {
 
     /* Playlist scannen */
     playlist_scan("/SD:/Music", &g_playlist);
-    if (cfg.last_track < g_playlist.count) {
-        g_playlist.current = (int16_t)cfg.last_track;
+    if (g_playlist.count == 0) {
+        k_mutex_lock(&state_mutex, K_FOREVER);
+        strncpy(g_state.track_name, "No tracks", TRACK_NAME_MAX - 1);
+        strncpy(g_state.artist,     "Insert SD card", TRACK_NAME_MAX - 1);
+        k_mutex_unlock(&state_mutex);
+    } else {
+        if (cfg.last_track < g_playlist.count) {
+            g_playlist.current = (int16_t)cfg.last_track;
+        }
     }
     if (cfg.shuffle) {
         playlist_shuffle_enable(&g_playlist);

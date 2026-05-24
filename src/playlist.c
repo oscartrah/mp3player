@@ -103,6 +103,7 @@ int16_t playlist_prev(const playlist_t *pl) {
 }
 
 static void fisher_yates(playlist_t *pl) {
+    if (pl->count < 2) return;
     for (uint16_t i = 0; i < pl->count; i++) pl->shuffle_order[i] = i;
     for (uint16_t i = pl->count - 1; i > 0; i--) {
         uint16_t j = (uint16_t)(sys_rand32_get() % (i + 1));
