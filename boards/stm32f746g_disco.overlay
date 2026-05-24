@@ -1,9 +1,9 @@
 /* boards/stm32f746g_disco.overlay */
 
-&sai2 {
+&sai2a {
     status = "okay";
-    pinctrl-0 = <&sai2_mck_pi4 &sai2_sck_pi5
-                 &sai2_sd_pi6  &sai2_fs_pi7>;
+    pinctrl-0 = <&sai2a_mck_pi4 &sai2a_sck_pi5
+                 &sai2a_sd_pi6  &sai2a_fs_pi7>;
     pinctrl-names = "default";
 };
 

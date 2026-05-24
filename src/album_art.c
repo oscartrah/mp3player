@@ -2,6 +2,7 @@
 #include "memory_cfg.h"
 #include <zephyr/kernel.h>
 #include <string.h>
+#include <lvgl.h>
 
 #ifdef HAS_TJPGDEC
 #include "tjpgd.h"
@@ -22,7 +23,7 @@ static unsigned jpeg_in(JDEC *jd, uint8_t *buf, unsigned len) {
 }
 
 /* Output callback: write one decoded MCU block into the pixel buffer */
-static lv_color_t s_pixel_buf[ART_DISPLAY_SIZE * ART_DISPLAY_SIZE];
+static lv_color_t s_pixel_buf[ART_DISPLAY_SIZE * ART_DISPLAY_SIZE] MEM_SECTION;
 
 static int jpeg_out(JDEC *jd, void *bitmap, JRECT *rect) {
     ARG_UNUSED(jd);
@@ -44,7 +45,7 @@ static int jpeg_out(JDEC *jd, void *bitmap, JRECT *rect) {
 
 #else
 /* Fallback when TJpgDec was not fetched */
-static lv_color_t s_pixel_buf[ART_DISPLAY_SIZE * ART_DISPLAY_SIZE];
+static lv_color_t s_pixel_buf[ART_DISPLAY_SIZE * ART_DISPLAY_SIZE] MEM_SECTION;
 #endif /* HAS_TJPGDEC */
 
 static lv_img_dsc_t s_img_dsc;
@@ -83,9 +84,11 @@ bool album_art_decode(const uint8_t *jpeg_data, uint32_t size) {
     }
 #endif
 
-    s_img_dsc.header.cf     = LV_IMG_CF_TRUE_COLOR;
+    s_img_dsc.header.magic  = LV_IMAGE_HEADER_MAGIC;
+    s_img_dsc.header.cf     = LV_COLOR_FORMAT_NATIVE;
     s_img_dsc.header.w      = ART_DISPLAY_SIZE;
     s_img_dsc.header.h      = ART_DISPLAY_SIZE;
+    s_img_dsc.header.stride = ART_DISPLAY_SIZE * sizeof(lv_color_t);
     s_img_dsc.data_size     = sizeof(s_pixel_buf);
     s_img_dsc.data          = (const uint8_t *)s_pixel_buf;
     s_decoded = true;
@@ -113,11 +116,13 @@ void album_art_update(lv_obj_t *img_widget, const mp3_meta_t *meta) {
         for (int i = 0; i < ART_DISPLAY_SIZE * ART_DISPLAY_SIZE; i++) {
             s_pixel_buf[i] = grey;
         }
-        s_img_dsc.header.cf  = LV_IMG_CF_TRUE_COLOR;
-        s_img_dsc.header.w   = ART_DISPLAY_SIZE;
-        s_img_dsc.header.h   = ART_DISPLAY_SIZE;
-        s_img_dsc.data_size  = sizeof(s_pixel_buf);
-        s_img_dsc.data       = (const uint8_t *)s_pixel_buf;
+        s_img_dsc.header.magic  = LV_IMAGE_HEADER_MAGIC;
+        s_img_dsc.header.cf     = LV_COLOR_FORMAT_NATIVE;
+        s_img_dsc.header.w      = ART_DISPLAY_SIZE;
+        s_img_dsc.header.h      = ART_DISPLAY_SIZE;
+        s_img_dsc.header.stride = ART_DISPLAY_SIZE * sizeof(lv_color_t);
+        s_img_dsc.data_size     = sizeof(s_pixel_buf);
+        s_img_dsc.data          = (const uint8_t *)s_pixel_buf;
         s_decoded = true;
     }
     if (s_decoded) {

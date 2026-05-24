@@ -33,6 +33,12 @@
     status = "okay";
     cd-gpios = <&gpio2 28 GPIO_ACTIVE_LOW>;
     no-1-8-v;
+
+    mmc {
+        compatible = "zephyr,sdmmc-disk";
+        disk-name  = "SD";
+        status     = "okay";
+    };
 };
 
 &elcdif {

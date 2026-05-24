@@ -32,6 +32,12 @@ target_sources(app PRIVATE
 
 target_include_directories(app PRIVATE src)
 
+# minimp3 — single-header MP3 decoder
+set(MINIMP3_DIR ${CMAKE_CURRENT_SOURCE_DIR}/modules/minimp3)
+if(EXISTS ${MINIMP3_DIR}/minimp3.h)
+    target_include_directories(app PRIVATE ${MINIMP3_DIR})
+endif()
+
 # TJpgDec — fetched by west into modules/tjpgdec (cmumford/TJpgDec mirror)
 set(TJPGDEC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../modules/tjpgdec)
 if(EXISTS ${TJPGDEC_DIR}/tjpgd.c)

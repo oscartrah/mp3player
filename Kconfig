@@ -1,3 +1,7 @@
+mainmenu "Zephyr MP3 Player"
+
+source "Kconfig.zephyr"
+
 choice AUDIO_HAL_BACKEND
     prompt "Audio Codec Backend"
     default AUDIO_HAL_WM8994
@@ -28,4 +32,10 @@ config AUDIO_HAL_SW_EQ_FALLBACK
     bool "Software Biquad EQ Fallback"
     default y if AUDIO_HAL_WM8960
     help
-      Aktiviert Software-EQ für Codecs ohne Hardware-EQ.
+      Enables software biquad EQ for codecs without hardware EQ.
+
+config MINIMP3
+    bool "minimp3 MP3 decoder"
+    default y
+    help
+      Enable the minimp3 single-header MP3 decoder library.

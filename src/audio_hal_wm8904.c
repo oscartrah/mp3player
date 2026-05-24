@@ -12,8 +12,11 @@ static int wm8904_write(uint8_t reg, uint16_t val) {
 }
 
 static int wm8904_init(void) {
-    s_i2c = DEVICE_DT_GET_ANY(wolfson_wm8904);
-    if (!s_i2c) s_i2c = DEVICE_DT_GET_ANY(zephyr_i2c);
+#if DT_NODE_EXISTS(DT_NODELABEL(wm8904))
+    s_i2c = DEVICE_DT_GET(DT_BUS(DT_NODELABEL(wm8904)));
+#else
+    s_i2c = NULL;
+#endif
     if (!s_i2c || !device_is_ready(s_i2c)) return -ENODEV;
 
     /* SW reset */

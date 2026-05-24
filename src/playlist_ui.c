@@ -1,4 +1,5 @@
 #include "playlist_ui.h"
+#include "player_state.h"
 #include "ui_theme.h"
 #include "ui_fonts.h"
 #include <string.h>
@@ -9,9 +10,14 @@ static uint16_t   s_active = UINT16_MAX;
 
 static void row_click_cb(lv_event_t *e) {
     uint16_t idx = (uint16_t)(uintptr_t)lv_event_get_user_data(e);
-    if (s_pl) s_pl->current = (int16_t)idx;
+    if (!s_pl || idx >= s_pl->count) return;
+    s_pl->current = (int16_t)idx;
     playlist_ui_set_active(idx);
-    /* Post CMD_PLAY_PATH via cmd_queue */
+
+    struct player_command cmd = {0};
+    cmd.cmd = CMD_PLAY_PATH;
+    strncpy(cmd.path, s_pl->entries[idx].path, sizeof(cmd.path) - 1);
+    k_msgq_put(&cmd_queue, &cmd, K_NO_WAIT);
 }
 
 void playlist_ui_init(lv_obj_t *parent, playlist_t *pl) {

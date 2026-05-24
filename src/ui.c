@@ -160,7 +160,9 @@ void ui_init(void) {
     lv_obj_set_style_bg_color(scr, UI_COL_BG, 0);
 
     /* Tab view */
-    s_tabview = lv_tabview_create(scr, LV_DIR_TOP, UI_TABBAR_H);
+    s_tabview = lv_tabview_create(scr);
+    lv_tabview_set_tab_bar_position(s_tabview, LV_DIR_TOP);
+    lv_tabview_set_tab_bar_size(s_tabview, UI_TABBAR_H);
     lv_obj_set_style_bg_color(s_tabview, UI_COL_BG, 0);
     lv_obj_set_size(s_tabview, g_display.width, g_display.height);
 

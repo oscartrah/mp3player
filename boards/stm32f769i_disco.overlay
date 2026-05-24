@@ -1,14 +1,38 @@
 /* boards/stm32f769i_disco.overlay */
+#include <zephyr/dt-bindings/dma/stm32_dma.h>
+#include <zephyr/dt-bindings/display/panel.h>
+#include <zephyr/dt-bindings/mipi_dsi/mipi_dsi.h>
 
-&sai2 {
-    status = "okay";
-    pinctrl-0 = <&sai2_mck_pi4 &sai2_sck_pi5
-                 &sai2_sd_pi6  &sai2_fs_pi7>;
-    pinctrl-names = "default";
+/* ── SAI2 Block A: not in stm32f7.dtsi, add it here ──────── */
+/ {
+    chosen {
+        zephyr,display = &ltdc;
+    };
+
+    soc {
+        sai2_a: sai2@40015c04 {
+            compatible = "st,stm32-sai";
+            #address-cells = <1>;
+            #size-cells = <0>;
+            reg = <0x40015c04 0x20>;
+            clocks = <&rcc STM32_CLOCK(APB2, 23)>;
+            dmas = <&dma2 4 3 (STM32_DMA_MODE_NORMAL |
+                               STM32_DMA_PRIORITY_HIGH |
+                               STM32_DMA_16BITS) 0>;
+            dma-names = "tx";
+            pinctrl-0 = <&sai2_mclk_a_pi4 &sai2_sck_a_pi5
+                         &sai2_sd_a_pi6  &sai2_fs_a_pi7>;
+            pinctrl-names = "default";
+            status = "okay";
+        };
+    };
 };
 
+/* ── WM8994 on I2C3 (PH7=SCL, PH8=SDA) ──────────────────── */
 &i2c3 {
     status = "okay";
+    pinctrl-0 = <&i2c3_scl_ph7 &i2c3_sda_ph8>;
+    pinctrl-names = "default";
     clock-frequency = <I2C_BITRATE_FAST>;
 
     wm8994: wm8994@1b {
@@ -17,42 +41,72 @@
     };
 };
 
-&sdmmc2 {
+/* ── PLLSAI for pixel clock (800×480 @ ~25 MHz) ─────────── */
+&pllsai {
+    div-m = <25>;
+    mul-n = <384>;
+    div-r = <5>;
+    post-div-r = <8>;
+    clocks = <&clk_hse>;
     status = "okay";
-    cd-gpios = <&gpioi 15 GPIO_ACTIVE_LOW>;
 };
 
-&ltdc {
+/* ── DMA2: enable so DT_HAS_COMPAT_STATUS_OKAY(st_stm32_dma_v1) is true ── */
+&dma2 {
     status = "okay";
-    disp-on-gpios = <&gpioj 5 GPIO_ACTIVE_HIGH>;
+};
+
+/* ── RNG for sys_rand_get ─────────────────────────────────── */
+&rng {
+    status = "okay";
+};
+
+/* ── LTDC (feeds DSI host) ───────────────────────────────── */
+&ltdc {
+    width        = <800>;
+    height       = <480>;
+    pixel-format = <PANEL_PIXEL_FORMAT_RGB_888>;
+    ext-sdram    = <&sdram1>;
+    def-back-color-red   = <0>;
+    def-back-color-green = <0>;
+    def-back-color-blue  = <0>;
+    status = "okay";
+
+    display-timings {
+        compatible = "zephyr,panel-timing";
+        hsync-active   = <0>;
+        vsync-active   = <0>;
+        de-active      = <0>;
+        pixelclk-active = <0>;
+        hsync-len      = <2>;
+        vsync-len      = <1>;
+        hback-porch    = <34>;
+        vback-porch    = <15>;
+        hfront-porch   = <34>;
+        vfront-porch   = <16>;
+    };
+};
+
+/* ── MIPI DSI host + OTM8009A panel ─────────────────────── */
+&mipi_dsi {
+    pll-ndiv = <100>;
+    pll-idf  = <5>;
+    pll-odf  = <0>;
+
+    vs-active-high;
+    hs-active-high;
+    de-active-high;
+
+    status = "okay";
 
     otm8009a: otm8009a@0 {
         compatible = "orisetech,otm8009a";
-        status = "okay";
-        width  = <800>;
-        height = <480>;
-        reset-gpios = <&gpioj 15 GPIO_ACTIVE_LOW>;
-    };
-};
-
-&i2c1 {
-    status = "okay";
-    ft5336@38 {
-        compatible = "focaltech,ft5336";
-        reg = <0x38>;
-        int-gpios = <&gpioi 13 GPIO_ACTIVE_LOW>;
-    };
-};
-
-&flash0 {
-    partitions {
-        compatible = "fixed-partitions";
-        #address-cells = <1>;
-        #size-cells    = <1>;
-
-        nvs_storage: partition@1F0000 {
-            label = "nvs_storage";
-            reg   = <0x001F0000 0x00010000>;
-        };
+        reg          = <0>;
+        reset-gpios  = <&gpioj 15 GPIO_ACTIVE_LOW>;
+        width        = <800>;
+        height       = <480>;
+        data-lanes   = <2>;
+        pixel-format = <MIPI_DSI_PIXFMT_RGB888>;
+        status       = "okay";
     };
 };

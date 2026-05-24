@@ -2,6 +2,7 @@
 #include "mp3_meta.h"
 #include <zephyr/fs/fs.h>
 #include <zephyr/kernel.h>
+#include <zephyr/random/random.h>
 #include <string.h>
 #include <stdlib.h>
 

@@ -3,8 +3,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define TRACK_NAME_MAX   64
+#define TRACK_NAME_MAX    64
+#ifndef PLAYLIST_PATH_MAX
 #define PLAYLIST_PATH_MAX 128
+#endif
 
 typedef enum {
     PLAYER_STOPPED,

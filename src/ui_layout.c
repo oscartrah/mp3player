@@ -1,5 +1,6 @@
 #include "ui_layout.h"
 #include "board_display.h"
+#include "memory_cfg.h"
 
 ui_layout_t g_layout;
 

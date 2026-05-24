@@ -1,27 +1,58 @@
 #define MINIMP3_IMPLEMENTATION
 #include <minimp3.h>
 #include "mp3_decoder.h"
+#include "memory_cfg.h"
 #include "player_state.h"
 #include "audio_hal.h"
 #include "biquad_eq.h"
 #include "settings.h"
 #include "playlist.h"
 #include <zephyr/fs/fs.h>
+#include <zephyr/drivers/i2s.h>
 #include <zephyr/kernel.h>
 #include <string.h>
 
 K_MSGQ_DEFINE(pcm_queue, sizeof(struct pcm_block), PCM_QUEUE_DEPTH, 4);
 
-static uint8_t read_buf[READ_BUF_SIZE];
-static biquad_eq_t s_beq;
+/* ── Board-specific I2S device ──────────────────────────────── */
+#if defined(CONFIG_BOARD_STM32F769I_DISCO) || defined(CONFIG_BOARD_STM32F746G_DISCO)
+#  define PLAYER_I2S_NODE  DT_NODELABEL(sai2_a)
+#elif defined(CONFIG_BOARD_MIMXRT1060_EVK)
+#  define PLAYER_I2S_NODE  DT_NODELABEL(sai1)
+#elif defined(CONFIG_BOARD_LPCXPRESSO54628)
+#  define PLAYER_I2S_NODE  DT_NODELABEL(flexcomm6)
+#elif defined(CONFIG_BOARD_EK_RA6M3G)
+#  define PLAYER_I2S_NODE  DT_NODELABEL(ssi0)
+#endif
 
-static bool load_settings_eq(void) {
-    app_settings_t cfg;
-    if (settings_load(&cfg) == 0 && cfg.eq.enabled) {
-        return true;
-    }
-    return false;
+/* TX memory slab: PCM_QUEUE_DEPTH blocks × PCM_BLOCK_SIZE samples × 2 bytes */
+K_MEM_SLAB_DEFINE(i2s_tx_slab, PCM_BLOCK_SIZE * 2U, PCM_QUEUE_DEPTH, 4);
+
+static uint32_t s_i2s_rate = 0;
+static uint8_t  s_i2s_ch   = 0;
+
+static int i2s_tx_configure(const struct device *dev,
+                             uint32_t rate, uint8_t channels)
+{
+    if (s_i2s_rate == rate && s_i2s_ch == channels) return 0;
+    struct i2s_config cfg = {
+        .word_size      = 16U,
+        .channels       = channels,
+        .format         = I2S_FMT_DATA_FORMAT_I2S,
+        .options        = I2S_OPT_FRAME_CLK_SLAVE | I2S_OPT_BIT_CLK_SLAVE,
+        .frame_clk_freq = rate,
+        .mem_slab       = &i2s_tx_slab,
+        .block_size     = PCM_BLOCK_SIZE * 2U,
+        .timeout        = 2000,
+    };
+    int rc = i2s_configure(dev, I2S_DIR_TX, &cfg);
+    if (rc == 0) { s_i2s_rate = rate; s_i2s_ch = channels; }
+    return rc;
 }
+
+/* ── Decoder thread ─────────────────────────────────────────── */
+static uint8_t    read_buf[READ_BUF_SIZE] MEM_SECTION;
+static biquad_eq_t s_beq;
 
 void decoder_thread(void *path_arg, void *p2, void *p3) {
     ARG_UNUSED(p2); ARG_UNUSED(p3);
@@ -44,9 +75,8 @@ void decoder_thread(void *path_arg, void *p2, void *p3) {
     int buf_used = 0;
 
     while (1) {
-        /* Refill read buffer */
         int avail = READ_BUF_SIZE - buf_used;
-        int got = fs_read(&f, buf + buf_used, avail);
+        int got   = fs_read(&f, buf + buf_used, avail);
         if (got <= 0 && buf_used == 0) break;
         if (got > 0) buf_used += got;
 
@@ -68,7 +98,6 @@ void decoder_thread(void *path_arg, void *p2, void *p3) {
                 biquad_eq_process(&s_beq, blk.data, samples, blk.channels);
             }
 
-            /* Update state sample_rate */
             k_mutex_lock(&state_mutex, K_FOREVER);
             g_state.sample_rate = info.hz;
             k_mutex_unlock(&state_mutex);
@@ -76,10 +105,10 @@ void decoder_thread(void *path_arg, void *p2, void *p3) {
             k_msgq_put(&pcm_queue, &blk, K_FOREVER);
         }
 
-        /* Check for stop command */
         struct player_command cmd;
         if (k_msgq_get(&cmd_queue, &cmd, K_NO_WAIT) == 0) {
-            if (cmd.cmd == CMD_STOP || cmd.cmd == CMD_NEXT || cmd.cmd == CMD_PREV) {
+            if (cmd.cmd == CMD_STOP || cmd.cmd == CMD_NEXT ||
+                cmd.cmd == CMD_PREV) {
                 k_msgq_purge(&pcm_queue);
                 break;
             }
@@ -88,14 +117,23 @@ void decoder_thread(void *path_arg, void *p2, void *p3) {
     fs_close(&f);
 }
 
+/* ── Player thread ──────────────────────────────────────────── */
 void player_thread(void *p1, void *p2, void *p3) {
     ARG_UNUSED(p1); ARG_UNUSED(p2); ARG_UNUSED(p3);
 
-    const struct device *i2s = DEVICE_DT_GET_ANY(zephyr_audio_i2s);
+#ifdef PLAYER_I2S_NODE
+    const struct device *i2s_dev = DEVICE_DT_GET(PLAYER_I2S_NODE);
+    if (!device_is_ready(i2s_dev)) i2s_dev = NULL;
+#else
+    const struct device *i2s_dev = NULL;
+#endif
 
+    bool     running    = false;
+    uint32_t elapsed_ms = 0;
     struct pcm_block blk;
 
     while (1) {
+        /* Handle control commands */
         struct player_command cmd;
         if (k_msgq_get(&cmd_queue, &cmd, K_NO_WAIT) == 0) {
             switch (cmd.cmd) {
@@ -105,17 +143,21 @@ void player_thread(void *p1, void *p2, void *p3) {
                 g_state.volume = (uint8_t)cmd.value;
                 k_mutex_unlock(&state_mutex);
                 break;
+
             case CMD_PAUSE:
+                if (i2s_dev && running) {
+                    i2s_trigger(i2s_dev, I2S_DIR_TX, I2S_TRIGGER_DRAIN);
+                    running = false;
+                }
                 k_mutex_lock(&state_mutex, K_FOREVER);
                 g_state.status = PLAYER_PAUSED;
                 k_mutex_unlock(&state_mutex);
                 audio_set_mute(true);
-                /* Wait until resumed */
+                /* Block until CMD_PLAY or CMD_STOP arrives */
                 while (1) {
                     k_sleep(K_MSEC(50));
-                    if (k_msgq_get(&cmd_queue, &cmd, K_NO_WAIT) == 0) {
-                        if (cmd.cmd == CMD_PLAY || cmd.cmd == CMD_STOP) break;
-                    }
+                    if (k_msgq_get(&cmd_queue, &cmd, K_NO_WAIT) == 0 &&
+                        (cmd.cmd == CMD_PLAY || cmd.cmd == CMD_STOP)) break;
                 }
                 if (cmd.cmd == CMD_PLAY) {
                     audio_set_mute(false);
@@ -124,29 +166,52 @@ void player_thread(void *p1, void *p2, void *p3) {
                     k_mutex_unlock(&state_mutex);
                 }
                 break;
+
             default:
                 break;
             }
         }
 
-        if (k_msgq_get(&pcm_queue, &blk, K_MSEC(100)) == 0) {
-            k_mutex_lock(&state_mutex, K_FOREVER);
-            player_status_t st = g_state.status;
-            k_mutex_unlock(&state_mutex);
+        if (k_msgq_get(&pcm_queue, &blk, K_MSEC(100)) != 0) continue;
 
-            if (st == PLAYER_PLAYING && i2s) {
-                /* Ship samples to I2S — board-specific details handled by Zephyr driver */
-                const struct device *i2s_dev = i2s;
-                ARG_UNUSED(i2s_dev);
-                /* In a real implementation: i2s_buf_write(i2s_dev, blk.data, blk.samples * 2) */
+        k_mutex_lock(&state_mutex, K_FOREVER);
+        player_status_t st = g_state.status;
+        k_mutex_unlock(&state_mutex);
+
+        if (st == PLAYER_PLAYING && i2s_dev) {
+            /* Reconfigure I2S if format changed (e.g. VBR rate switch) */
+            if (blk.sample_rate != s_i2s_rate || blk.channels != s_i2s_ch) {
+                if (running) {
+                    i2s_trigger(i2s_dev, I2S_DIR_TX, I2S_TRIGGER_DROP);
+                    running = false;
+                }
+                i2s_tx_configure(i2s_dev, blk.sample_rate, blk.channels);
             }
 
-            /* Update elapsed time (1152 samples per MP3 frame, stereo) */
-            if (blk.sample_rate > 0) {
-                uint32_t frame_ms = (1152 * 1000) / blk.sample_rate;
+            /* Write PCM into I2S TX slab — driver returns block to slab after DMA */
+            void *tx_buf;
+            if (k_mem_slab_alloc(&i2s_tx_slab, &tx_buf, K_MSEC(100)) == 0) {
+                size_t sz = blk.samples * sizeof(int16_t);
+                memcpy(tx_buf, blk.data, sz);
+                if (i2s_buf_write(i2s_dev, tx_buf, sz) == 0) {
+                    if (!running) {
+                        i2s_trigger(i2s_dev, I2S_DIR_TX, I2S_TRIGGER_START);
+                        running = true;
+                    }
+                } else {
+                    k_mem_slab_free(&i2s_tx_slab, &tx_buf);
+                }
+            }
+        }
+
+        /* Accumulate ms to avoid integer truncation (26 ms/frame at 44100 Hz) */
+        if (blk.sample_rate > 0 && st == PLAYER_PLAYING) {
+            elapsed_ms += (1152U * 1000U) / blk.sample_rate;
+            if (elapsed_ms >= 1000U) {
                 k_mutex_lock(&state_mutex, K_FOREVER);
-                g_state.elapsed_sec += frame_ms / 1000;
+                g_state.elapsed_sec += elapsed_ms / 1000U;
                 k_mutex_unlock(&state_mutex);
+                elapsed_ms %= 1000U;
             }
         }
     }

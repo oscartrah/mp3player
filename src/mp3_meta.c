@@ -3,6 +3,7 @@
 #include <zephyr/kernel.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 uint8_t art_buf[ART_BUF_SIZE] MEM_SECTION;
 
