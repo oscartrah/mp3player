@@ -24,7 +24,7 @@
     #define PCM_QUEUE_DEPTH      8
     #define ART_DISPLAY_SIZE     160
     #define PLAYLIST_MAX_TRACKS  256
-    #define MEM_SECTION          __attribute__((section("SDRAM1")))
+    #define MEM_SECTION          /* RT1060 main sram IS external SDRAM — no section attr needed */
 
 #elif defined(CONFIG_BOARD_LPCXPRESSO54628)
     #define ART_BUF_SIZE         (16 * 1024)

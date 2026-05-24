@@ -1,12 +1,26 @@
 /* boards/stm32f746g_disco.overlay */
+#include <zephyr/dt-bindings/display/panel.h>
 
-&sai2a {
-    status = "okay";
-    pinctrl-0 = <&sai2a_mck_pi4 &sai2a_sck_pi5
-                 &sai2a_sd_pi6  &sai2a_fs_pi7>;
+/* ── SAI1 Block A: PE2=MCLK, PE5=SCK, PE6=SD, PE4=FS ─────── */
+&sai1_a {
+    dma-names = "tx";
+    pinctrl-0 = <&sai1_mclk_a_pe2 &sai1_sck_a_pe5
+                 &sai1_sd_a_pe6   &sai1_fs_a_pe4>;
     pinctrl-names = "default";
+    status = "okay";
 };
 
+/* ── DMA2: required for st_stm32_dma_v1 SAI driver ────────── */
+&dma2 {
+    status = "okay";
+};
+
+/* ── RNG for sys_rand_get ─────────────────────────────────── */
+&rng {
+    status = "okay";
+};
+
+/* ── WM8994 on I2C3 (PH7=SCL, PH8=SDA) ──────────────────── */
 &i2c3 {
     status = "okay";
     clock-frequency = <I2C_BITRATE_FAST>;
@@ -23,6 +37,7 @@
     };
 };
 
+/* ── SDMMC1 (SD card) ─────────────────────────────────────── */
 &sdmmc1 {
     status = "okay";
     pinctrl-0 = <&sdmmc1_d0_pc8 &sdmmc1_d1_pc9
@@ -39,30 +54,32 @@
     };
 };
 
+/* ── LTDC (480×272 RK043FN02H parallel panel) ─────────────── */
 &ltdc {
     status = "okay";
-    disp-on-gpios  = <&gpioi 12 GPIO_ACTIVE_HIGH>;
-    bl-ctrl-gpios  = <&gpiok 3  GPIO_ACTIVE_HIGH>;
+    ext-sdram = <&sdram1>;
+    width     = <480>;
+    height    = <272>;
+    pixel-format = <PANEL_PIXEL_FORMAT_RGB_888>;
+    disp-on-gpios = <&gpioi 12 GPIO_ACTIVE_HIGH>;
+    bl-ctrl-gpios = <&gpiok 3  GPIO_ACTIVE_HIGH>;
 
-    display = <&rk043fn02h>;
-
-    rk043fn02h: rk043fn02h {
-        compatible      = "rocktech,rk043fn02h";
-        width           = <480>;
-        height          = <272>;
-        hsync-len       = <41>;
-        hfront-porch    = <4>;
-        hback-porch     = <8>;
-        vsync-len       = <10>;
-        vfront-porch    = <4>;
-        vback-porch     = <2>;
-        hsync-active    = <0>;
-        vsync-active    = <0>;
-        de-active       = <1>;
+    display-timings {
+        compatible = "zephyr,panel-timing";
+        hsync-active   = <0>;
+        vsync-active   = <0>;
+        de-active      = <1>;
         pixelclk-active = <0>;
+        hsync-len      = <41>;
+        vsync-len      = <10>;
+        hback-porch    = <8>;
+        vback-porch    = <2>;
+        hfront-porch   = <4>;
+        vfront-porch   = <4>;
     };
 };
 
+/* ── Flash partitions for NVS ─────────────────────────────── */
 &flash0 {
     partitions {
         compatible    = "fixed-partitions";

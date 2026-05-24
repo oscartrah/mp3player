@@ -51,6 +51,7 @@
 
     display-timings {
         compatible = "zephyr,panel-timing";
+        clock-frequency = <9210240>;
         hsync-active   = <0>;
         vsync-active   = <0>;
         de-active      = <1>;

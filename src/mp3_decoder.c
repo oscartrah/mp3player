@@ -12,11 +12,23 @@
 #include <zephyr/kernel.h>
 #include <string.h>
 
-K_MSGQ_DEFINE(pcm_queue, sizeof(struct pcm_block), PCM_QUEUE_DEPTH, 4);
+/* PCM queue: backing buffer in SDRAM to avoid internal RAM overflow */
+static char pcm_queue_buf[sizeof(struct pcm_block) * PCM_QUEUE_DEPTH] MEM_SECTION;
+struct k_msgq pcm_queue;
+
+static int pcm_queue_init(void)
+{
+    k_msgq_init(&pcm_queue, pcm_queue_buf,
+                sizeof(struct pcm_block), PCM_QUEUE_DEPTH);
+    return 0;
+}
+SYS_INIT(pcm_queue_init, POST_KERNEL, 99);
 
 /* ── Board-specific I2S device ──────────────────────────────── */
-#if defined(CONFIG_BOARD_STM32F769I_DISCO) || defined(CONFIG_BOARD_STM32F746G_DISCO)
+#if defined(CONFIG_BOARD_STM32F769I_DISCO)
 #  define PLAYER_I2S_NODE  DT_NODELABEL(sai2_a)
+#elif defined(CONFIG_BOARD_STM32F746G_DISCO)
+#  define PLAYER_I2S_NODE  DT_NODELABEL(sai1_a)
 #elif defined(CONFIG_BOARD_MIMXRT1060_EVK)
 #  define PLAYER_I2S_NODE  DT_NODELABEL(sai1)
 #elif defined(CONFIG_BOARD_LPCXPRESSO54628)

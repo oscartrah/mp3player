@@ -74,7 +74,7 @@ static bool parse_id3v2(struct fs_file_t *f, mp3_meta_t *meta) {
         char fid[5] = {0};
         memcpy(fid, frame_hdr, 4);
 
-        uint8_t *fbuf = k_malloc(fsize);
+        uint8_t *fbuf = malloc(fsize);
         if (!fbuf) { fs_seek(f, fsize, FS_SEEK_CUR); pos += fsize; continue; }
         fs_read(f, fbuf, fsize);
         pos += fsize;
@@ -123,7 +123,7 @@ static bool parse_id3v2(struct fs_file_t *f, mp3_meta_t *meta) {
                 meta->is_vbr = (fid[0] == 'X');
             }
         }
-        k_free(fbuf);
+        free(fbuf);
         ARG_UNUSED(tmp);
     }
     return true;
