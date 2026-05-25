@@ -209,7 +209,7 @@ void ui_update(void) {
             lv_bar_set_value(s_bar_progress,
                 (int32_t)((st.elapsed_sec * 1000) / st.total_sec), LV_ANIM_OFF);
         }
-        char tbuf[24];
+        char tbuf[32];
         snprintf(tbuf, sizeof(tbuf), "%u:%02u / %u:%02u",
                  st.elapsed_sec / 60, st.elapsed_sec % 60,
                  st.total_sec   / 60, st.total_sec   % 60);

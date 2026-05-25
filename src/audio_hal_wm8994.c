@@ -80,7 +80,8 @@ static int wm8994_set_eq(const eq_config_t *eq) {
     for (int i = 0; i < 5 && i < EQ_BANDS; i++) {
         /* Gain register: 0x481+i, format: gain_db + 12 in 4-bit field */
         int16_t g = (int16_t)(eq->bands[i].gain_db + 12.0f);
-        if (g < 0) g = 0; if (g > 24) g = 24;
+        if (g < 0) g = 0;
+        if (g > 24) g = 24;
         wm8994_write((uint16_t)(0x0481 + i), (uint16_t)g);
     }
     return 0;
